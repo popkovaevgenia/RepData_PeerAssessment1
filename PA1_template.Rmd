@@ -1,25 +1,121 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+#Peer Assessment 1
+
+Loading and transforming the data
+
+```{r, echo = TRUE, highlight=TRUE}
+act <- read.csv("activity.csv")
+act$date<-as.factor(act$date)
+head(act)
+```
+
+Histogram of the total number of steps per day:
+
+```{r plot, echo=TRUE,highlight=TRUE}
+new_act<-act[order(act$date),]
+b<-split(new_act,new_act$date)
+res<-sapply(b,function(elt) sum(elt[,1], na.rm=TRUE))
+hist(res,main = "Histogram of the total number of steps", xlab="Steps", breaks=15)
+```
+
+Mean and median of the total number of steps per day:
+
+```{r,echo=TRUE,highlight=TRUE}
+x<-unique(new_act$date)
+means<-sapply(b,function(elt) mean(elt[,1], na.rm=TRUE))
+medians<-sapply(b,function(elt) median(elt[,1], na.rm=TRUE))
+result1<-data.frame(x,means,medians)
+names(result1) <- c("Date", "Mean of steps", "Median of steps")
+print(result1)
+```
 
 
-## Loading and preprocessing the data
+
+
+Plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r,echo=TRUE,highlight=TRUE}
+new_act<-act[order(act$interval),]
+b<-split(new_act,new_act$interval)
+res<-sapply(b,function(elt) sum(elt[,1], na.rm=TRUE))
+x<-unique(new_act$interval)
+result<-data.frame(x,res)
+names(result)<-c("Interval", "Steps_total")
+with(result, plot(Interval, Steps_total, type = "l"))
+```
+
+Interval containig the maximum number of steps:
+
+```{r,echo=TRUE,highlight=TRUE}
+result[(result$Steps==max(result$Steps_total, na.rm = TRUE)),]
+```
+
+In this dataset there are 2304 rows with missing values:
+
+```{r,echo=TRUE,highlight=TRUE}
+sum(is.na(act$steps))
+```
+
+
+Filling in all of the missing values in the dataset (mean for this 5-minute interval).
+
+```{r,echo=TRUE,highlight=TRUE}
+tmp_act<-act
+m <- merge(tmp_act, result, by.x = "interval", by.y = "Interval")
+t<-m$steps
+bad<-is.na(t)
+t2<-m$Steps_total
+t2<-t2[!bad]
+t[is.na(t)]<-t2
+m$steps<-t
+summary(m)
+```
 
 
 
-## What is mean total number of steps taken per day?
+Histogram and table with means and medians for new dataset:
+
+```{r, echo=TRUE,highlight=TRUE}
+new_act<-m[order(m$date),]
+b<-split(new_act,new_act$date)
+res<-sapply(b,function(elt) sum(elt[,2], na.rm=TRUE))
+hist(res,main = "Histogram of the total number of steps", xlab="Steps", breaks=15)
+
+x<-unique(new_act$date)
+means<-sapply(b,function(elt) mean(elt[,2], na.rm=TRUE))
+medians<-sapply(b,function(elt) median(elt[,2], na.rm=TRUE))
+result1<-data.frame(x,means,medians)
+names(result1) <- c("Date", "Mean of steps", "Median of steps")
+print(result1)
+```
 
 
 
-## What is the average daily activity pattern?
 
+As you can see histogram differs from the estimates in the 1st part. Mean's and median's values are practically the same. 
+It's because of the fact that the total number of daily steps increase, but mean and median for each 5-minute interval stay the same.
 
+We need to add column "weekday" to new dataset and make the plot with library lattice:
 
-## Imputing missing values
+```{r, echo=TRUE,highlight=TRUE}
+d<-as.POSIXlt(m$date)
+m$weekday<-rep(0,nrow(m))
+m$weekday[d$wday==0 | d$wday==6]<-"weekend"
+m$weekday[m$weekday != "weekend"]<-"weekday"
+m$weekday<-as.factor(m$weekday)
+library(lattice)
+m_wday<-m[(m$weekday=="weekday"),]
+m_wend<-m[(m$weekday=="weekend"),]
+b<-split(m_wday,m_wday$interval)
+c<-split(m_wend,m_wend$interval)
+res_wday<-sapply(b,function(elt) mean(elt[,2]))
+res_wend<-sapply(c,function(elt) mean(elt[,2]))
+x<-unique(m_wday$interval)
+y<-unique(m_wend$interval)
+wday<-data.frame(x,res_wday,rep("weekday",length(x)))
+wend<-data.frame(y,res_wend,rep("weekend",length(y)))
+names(wday)<-c("interval","steps", "weekday")
+names(wend)<-c("interval","steps", "weekday")
+new_act<-rbind(wday,wend)
+xyplot(steps~interval|weekday,new_act, type="l")
+```
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
